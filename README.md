@@ -180,54 +180,19 @@ SKIP_AUTH=false
 
 #### 3. Настройка Nginx (Reverse Proxy)
 
-Создай конфиг файл:
+В репозитории уже есть готовый пример конфига `nginx.conf.example`.
+
+1. Скопируй его в nginx (убрав .example):
 ```bash
-sudo nano /etc/nginx/sites-available/reshala-support
+sudo cp nginx.conf.example /etc/nginx/sites-available/nginx.conf
+sudo nano /etc/nginx/sites-available/nginx.conf
 ```
 
-Вставь этот конфиг (замени `your-domain.com` на свой домен):
-
-```nginx
-# ---------------------------------------
-# BACKEND (API)
-# ---------------------------------------
-server {
-    server_name api.your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:8001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# ---------------------------------------
-# FRONTEND (Mini App)
-# ---------------------------------------
-server {
-    server_name your-domain.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+2. Внутри файла замени `your-domain.com` и `api.your-domain.com` на свои домены.
 
 Активируй конфиг и проверь ошибки:
 ```bash
-sudo ln -s /etc/nginx/sites-available/reshala-support /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/nginx.conf /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```

@@ -5,5 +5,5 @@ contact_links:
     about: Оперативные вопросы лучше решать в чате с братвой.
     
   - name: 📚 Документация (Wiki)
-    url: https://github.com/DonMatteoVPN/Reshala-AI-ticket-bot/blob/dev/docs/
+    url: https://github.com/DonMatteoVPN/Reshala-AI-ticket-bot/blob/main/docs/
     about: Сначала читай мануал, потом пиши тикет.
