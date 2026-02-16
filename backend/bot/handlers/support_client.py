@@ -428,6 +428,7 @@ async def ask_call_manager_callback(update: Update, context: ContextTypes.DEFAUL
 
 async def ask_close_ticket_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+    logger.info(f"ask_close_ticket_callback triggered by user {query.from_user.id}")
     await query.answer()
     await query.message.reply_text("✅ <b>Закрытие тикета</b>\n\nВы уверены?", parse_mode="HTML", reply_markup=confirm_client_keyboard("client_close_ticket"))
 

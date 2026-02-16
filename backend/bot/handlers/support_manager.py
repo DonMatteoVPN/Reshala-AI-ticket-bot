@@ -132,6 +132,7 @@ async def handle_support_group_message(update: Update, context: ContextTypes.DEF
 async def close_ticket_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Менеджер закрывает тикет (close_ticket:ticket_id)"""
     query = update.callback_query
+    logger.info(f"close_ticket_callback (manager) triggered by user {query.from_user.id} with data {query.data}")
     data = query.data or ""
     ticket_id = data.replace("close_ticket:", "")
     
