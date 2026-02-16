@@ -107,8 +107,31 @@ def get_settings():
                 miniapp_url = f"https://{domain}"
             else:
                 miniapp_url = domain
-            settings["miniapp_url"] = miniapp_url
-            updates["miniapp_url"] = miniapp_url
+                settings["miniapp_url"] = miniapp_url
+                updates["miniapp_url"] = miniapp_url
+
+    # [CRITICAL] Always enforce ALLOWED_MANAGER_IDS from ENV
+    # Even if DB has a value, we merge ENV values into it to ensure admin access
+    env_managers_str = os.environ.get("ALLOWED_MANAGER_IDS", "")
+    if env_managers_str:
+        try:
+            env_managers = [int(i.strip()) for i in env_managers_str.split(",") if i.strip()]
+            current_managers = settings.get("allowed_manager_ids", [])
+            
+            # Ensure it's a list
+            if not isinstance(current_managers, list):
+                current_managers = []
+                
+            # Merge unique
+            new_managers = list(set(current_managers + env_managers))
+            
+            # If changed, update
+            if set(new_managers) != set(current_managers):
+                settings["allowed_manager_ids"] = new_managers
+                updates["allowed_manager_ids"] = new_managers
+                logger.info(f"Enforced ALLOWED_MANAGER_IDS from ENV. Managers: {new_managers}")
+        except Exception as e:
+            logger.error(f"Error enforcing ALLOWED_MANAGER_IDS from ENV: {e}")
 
     # Save updates to DB if any
     if updates and db is not None:
