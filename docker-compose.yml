@@ -27,8 +27,8 @@ services:
     container_name: reshala-backend
     restart: unless-stopped
     environment:
-      - MONGO_URL=mongodb://mongodb:27017
-      - DB_NAME=reshala_support
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - DB_NAME=${DB_NAME:-reshala_support}
       - BOT_TOKEN=${BOT_TOKEN}
       - REMNAWAVE_API_URL=${REMNAWAVE_API_URL}
       - REMNAWAVE_API_TOKEN=${REMNAWAVE_API_TOKEN}
@@ -56,8 +56,8 @@ services:
     restart: unless-stopped
     command: python -m bot.main
     environment:
-      - MONGO_URL=mongodb://mongodb:27017
-      - DB_NAME=reshala_support
+      - MONGO_URL=${MONGO_URL:-mongodb://mongodb:27017}
+      - DB_NAME=${DB_NAME:-reshala_support}
       - BOT_TOKEN=${BOT_TOKEN}
       - REMNAWAVE_API_URL=${REMNAWAVE_API_URL}
       - REMNAWAVE_API_TOKEN=${REMNAWAVE_API_TOKEN}
