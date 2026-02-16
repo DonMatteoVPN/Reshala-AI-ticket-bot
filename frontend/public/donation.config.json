@@ -1,0 +1,27 @@
+{
+    "telegram_tribute": {
+        "enabled": true,
+        "username": "DonMatteoRU",
+        "link": "https://t.me/tribute/app?startapp=dxrn"
+    },
+    "crypto": {
+        "enabled": true,
+        "wallets": [
+            {
+                "currency": "USDT (TRC20)",
+                "address": "TKPnnmtJcDM7B2uCoLQciwZmS7f8ckMNx9",
+                "network": "Tron"
+            },
+            {
+                "currency": "BTC",
+                "address": "bc1q235adg3dd4t43jmkpqka0hj305la43md38fc0n",
+                "network": "Bitcoin"
+            },
+            {
+                "currency": "ETH",
+                "address": "0xB42a384A7d14f8cd0f29f1984a5eA47C25d9AA48",
+                "network": "Ethereum"
+            }
+        ]
+    }
+}
