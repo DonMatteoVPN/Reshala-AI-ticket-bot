@@ -1,27 +1,50 @@
-from fastapi import APIRouter, Body
-from pymongo import MongoClient
+from fastapi import APIRouter, Body, Depends
+from middleware.auth import verify_telegram_auth
+
+import sys
 import os
 
+# Add utils to path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from utils.db_config import get_db, get_settings
+
 router = APIRouter()
+db = get_db()
 
-MONGO_URL = os.environ.get("MONGO_URL")
-DB_NAME = os.environ.get("DB_NAME", "reshala_support")
-client = MongoClient(MONGO_URL)
-db = client[DB_NAME]
 
+def mask_secret(secret: str) -> str:
+    if not secret or len(secret) < 8:
+        return "***"
+    return secret[:4] + "***" + secret[-4:]
 
 @router.get("")
-def get_settings():
-    doc = db.settings.find_one({}, {"_id": 0})
+def get_settings_endpoint(user_data: dict = Depends(verify_telegram_auth)):
+    doc = get_settings()
     if not doc:
         return {"error": "no settings"}
+    
+    # Mask critical secrets
+    sensitive_keys = ["bot_token", "remnawave_api_token", "bedolaga_api_token"]
+    for key in sensitive_keys:
+        if key in doc:
+            doc[key] = mask_secret(doc[key])
+            
     return doc
 
 
 @router.put("")
-def update_settings(data: dict = Body(...)):
+def update_settings(data: dict = Body(...), user_data: dict = Depends(verify_telegram_auth)):
     protected = ["_id"]
-    update = {k: v for k, v in data.items() if k not in protected}
+    update = {}
+    
+    for k, v in data.items():
+        if k in protected:
+            continue
+        # Skip masked values
+        if isinstance(v, str) and "***" in v:
+            continue
+        update[k] = v
+        
     if not update:
         return {"ok": False, "error": "nothing to update"}
     db.settings.update_one({}, {"$set": update})

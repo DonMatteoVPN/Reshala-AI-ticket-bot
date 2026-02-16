@@ -36,7 +36,7 @@ const TICKET_STATUSES = {
   closed: { emoji: '✅', label: 'Закрыт', color: 'success' },
 };
 
-export default function TicketsPage({ settings }) {
+export default function TicketsPage({ settings, initData }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -47,9 +47,15 @@ export default function TicketsPage({ settings }) {
   const [actionMsg, setActionMsg] = useState('');
   const [filter, setFilter] = useState('all'); // all, escalated, suspicious
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (initData) headers['X-Telegram-Init-Data'] = initData;
+
   const fetchTickets = useCallback(async () => {
     try {
-      const r = await fetch(`${API}/api/tickets/active`);
+      const reqHeaders = {};
+      if (initData) reqHeaders['X-Telegram-Init-Data'] = initData;
+
+      const r = await fetch(`${API}/api/tickets/active`, { headers: reqHeaders });
       const data = await r.json();
       setTickets(data.tickets || []);
     } catch (e) {
@@ -57,7 +63,7 @@ export default function TicketsPage({ settings }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [initData]);
 
   useEffect(() => {
     fetchTickets();
@@ -71,11 +77,11 @@ export default function TicketsPage({ settings }) {
     try {
       const r = await fetch(`${API}/api/tickets/${ticketId}/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ message: replyText.trim(), manager_name: 'Менеджер' })
       });
       const data = await r.json();
-      
+
       if (data.ok) {
         setReplyText('');
         setActionMsg('Ответ отправлен клиенту в Telegram');
@@ -93,7 +99,7 @@ export default function TicketsPage({ settings }) {
 
   const closeTicket = async (ticketId) => {
     try {
-      await fetch(`${API}/api/tickets/${ticketId}/close`, { method: 'POST' });
+      await fetch(`${API}/api/tickets/${ticketId}/close`, { method: 'POST', headers });
       fetchTickets();
       setSelectedTicket(null);
       setActionMsg('Тикет закрыт');
@@ -104,7 +110,7 @@ export default function TicketsPage({ settings }) {
 
   const removeTicket = async (ticketId) => {
     try {
-      await fetch(`${API}/api/tickets/${ticketId}/remove`, { method: 'POST' });
+      await fetch(`${API}/api/tickets/${ticketId}/remove`, { method: 'POST', headers });
       fetchTickets();
       setSelectedTicket(null);
       setActionMsg('Тикет удалён');
@@ -121,7 +127,7 @@ export default function TicketsPage({ settings }) {
     const { action, data } = confirm;
     setConfirm({ open: false });
     setActionMsg('');
-    
+
     if (action === 'close-ticket') {
       await closeTicket(data.ticketId);
     } else if (action === 'remove-ticket') {
@@ -130,7 +136,7 @@ export default function TicketsPage({ settings }) {
       try {
         const r = await fetch(`${API}/api/actions/${action}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(data)
         });
         const result = await r.json();
@@ -178,19 +184,19 @@ export default function TicketsPage({ settings }) {
           <span className="card-title">Активные тикеты</span>
         </div>
         <div className="filter-tabs">
-          <button 
+          <button
             className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
             onClick={() => setFilter('all')}
           >
             Все <span className="filter-count">{counts.all}</span>
           </button>
-          <button 
+          <button
             className={`filter-tab ${filter === 'escalated' ? 'active' : ''}`}
             onClick={() => setFilter('escalated')}
           >
             🔥 Эскалация <span className="filter-count">{counts.escalated}</span>
           </button>
-          <button 
+          <button
             className={`filter-tab suspicious ${filter === 'suspicious' ? 'active' : ''}`}
             onClick={() => setFilter('suspicious')}
           >
@@ -206,9 +212,9 @@ export default function TicketsPage({ settings }) {
           <div className="empty-icon"><Flame size={24} /></div>
           <div className="empty-title">Нет активных тикетов</div>
           <div className="empty-text">
-            {filter === 'suspicious' ? 'Нет подозрительных пользователей' : 
-             filter === 'escalated' ? 'Нет эскалированных тикетов' : 
-             'Все вопросы решены AI-ассистентом'}
+            {filter === 'suspicious' ? 'Нет подозрительных пользователей' :
+              filter === 'escalated' ? 'Нет эскалированных тикетов' :
+                'Все вопросы решены AI-ассистентом'}
           </div>
         </div>
       ) : (
@@ -216,7 +222,7 @@ export default function TicketsPage({ settings }) {
           {filteredTickets.map(ticket => {
             const status = TICKET_STATUSES[ticket.status] || TICKET_STATUSES.open;
             const isSuspicious = ticket.status === 'suspicious';
-            
+
             return (
               <div
                 key={ticket.id}
@@ -298,9 +304,9 @@ export default function TicketsPage({ settings }) {
                             <div key={i} className={`chat-message ${msg.role}`}>
                               <div className="chat-message-header">
                                 <span className="chat-message-role">
-                                  {msg.role === 'user' ? '👤 Клиент' : 
-                                   msg.role === 'manager' ? `👨‍💼 ${msg.name || 'Менеджер'}` : 
-                                   '🤖 AI'}
+                                  {msg.role === 'user' ? '👤 Клиент' :
+                                    msg.role === 'manager' ? `👨‍💼 ${msg.name || 'Менеджер'}` :
+                                      '🤖 AI'}
                                 </span>
                                 {msg.timestamp && (
                                   <span className="chat-message-time">

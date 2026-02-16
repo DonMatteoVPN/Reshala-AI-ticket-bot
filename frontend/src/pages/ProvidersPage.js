@@ -19,7 +19,7 @@ function Toggle({ on, onClick }) {
   );
 }
 
-function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
+function ProviderCard({ provider, isActive, onSetActive, onRefresh, initData }) {
   const [expanded, setExpanded] = useState(false);
   const [newKey, setNewKey] = useState('');
   const [testing, setTesting] = useState(false);
@@ -30,13 +30,16 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
   const hasModels = provider.models && provider.models.length > 0;
   const hasKeys = provider.keys_count > 0;
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (initData) headers['X-Telegram-Init-Data'] = initData;
+
   const testConnection = async () => {
     setTesting(true);
     setTestResult(null);
     try {
       const r = await fetch(`${API}/api/ai/test-connection`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ provider: provider.name })
       });
       const data = await r.json();
@@ -55,7 +58,7 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
     if (!newKey.trim()) return;
     await fetch(`${API}/api/settings/providers/${provider.name}/keys`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ key: newKey.trim() })
     });
     setNewKey('');
@@ -63,14 +66,14 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
   };
 
   const removeKey = async (index) => {
-    await fetch(`${API}/api/settings/providers/${provider.name}/keys/${index}`, { method: 'DELETE' });
+    await fetch(`${API}/api/settings/providers/${provider.name}/keys/${index}`, { method: 'DELETE', headers });
     onRefresh();
   };
 
   const toggleEnabled = async () => {
     await fetch(`${API}/api/settings/providers/${provider.name}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ enabled: !provider.enabled })
     });
     onRefresh();
@@ -80,7 +83,7 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
     setSelectedModel(model);
     await fetch(`${API}/api/ai/set-model`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ provider: provider.name, model })
     });
     onRefresh();
@@ -89,7 +92,7 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
   const setAsActive = async () => {
     await fetch(`${API}/api/ai/set-active-provider`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ provider: provider.name })
     });
     onSetActive();
@@ -232,7 +235,7 @@ function ProviderCard({ provider, isActive, onSetActive, onRefresh }) {
   );
 }
 
-export default function ProvidersPage({ providers, settings, onRefresh }) {
+export default function ProvidersPage({ providers, settings, onRefresh, initData }) {
   const activeProvider = settings?.active_provider || '';
   const enabledCount = providers.filter(p => p.enabled).length;
   const readyCount = providers.filter(p => p.enabled && p.keys_count > 0 && p.models?.length > 0).length;
@@ -248,8 +251,8 @@ export default function ProvidersPage({ providers, settings, onRefresh }) {
           </div>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.55 }}>
-          Добавьте API ключи и проверьте соединение для загрузки моделей. 
-          При исчерпании лимитов ключа система автоматически переключается на следующий. 
+          Добавьте API ключи и проверьте соединение для загрузки моделей.
+          При исчерпании лимитов ключа система автоматически переключается на следующий.
           Если все ключи провайдера недоступны — используется другой активный провайдер.
         </p>
       </div>
@@ -261,6 +264,7 @@ export default function ProvidersPage({ providers, settings, onRefresh }) {
           isActive={p.name === activeProvider}
           onSetActive={onRefresh}
           onRefresh={onRefresh}
+          initData={initData}
         />
       ))}
     </div>

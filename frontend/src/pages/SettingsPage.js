@@ -33,7 +33,7 @@ function InputWithEye({ label, placeholder, value, onChange, testId, hint }) {
   );
 }
 
-export default function SettingsPage({ settings, onUpdate }) {
+export default function SettingsPage({ settings, onUpdate, initData }) {
   const [form, setForm] = useState({
     service_name: settings?.service_name || '',
     main_bot_username: settings?.main_bot_username || '',
@@ -53,6 +53,9 @@ export default function SettingsPage({ settings, onUpdate }) {
 
   const handleChange = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (initData) headers['X-Telegram-Init-Data'] = initData;
+
   const handleSave = async () => {
     setSaving(true);
     setMsg('');
@@ -64,7 +67,7 @@ export default function SettingsPage({ settings, onUpdate }) {
       };
       const r = await fetch(`${API}/api/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
       const data = await r.json();
@@ -83,7 +86,7 @@ export default function SettingsPage({ settings, onUpdate }) {
 
   const loadStockPrompt = async () => {
     try {
-      const r = await fetch(`${API}/api/ai/stock-prompt`);
+      const r = await fetch(`${API}/api/ai/stock-prompt`, { headers });
       const data = await r.json();
       if (data.prompt) {
         handleChange('system_prompt_override', data.prompt);
@@ -179,7 +182,7 @@ export default function SettingsPage({ settings, onUpdate }) {
           <div className="prompt-variables">
             <Info size={12} style={{ marginRight: 4 }} />
             <span>Переменные: </span>
-            <code>{'{service_name}'}</code> — название сервиса, 
+            <code>{'{service_name}'}</code> — название сервиса,
             <code>{'{main_bot}'}</code> — username основного бота
           </div>
         </div>

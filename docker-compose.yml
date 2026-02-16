@@ -10,7 +10,7 @@ services:
     networks:
       - reshala-network
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,6 +34,7 @@ services:
       - REMNAWAVE_API_TOKEN=${REMNAWAVE_API_TOKEN}
       - SUPPORT_GROUP_ID=${SUPPORT_GROUP_ID}
       - ALLOWED_MANAGER_IDS=${ALLOWED_MANAGER_IDS}
+      - SKIP_AUTH=${SKIP_AUTH:-false}
     ports:
       - "8001:8001"
     depends_on:
@@ -46,6 +47,36 @@ services:
       options:
         max-size: "50m"
         max-file: "5"
+
+  bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: reshala-bot
+    restart: unless-stopped
+    command: python -m bot.main
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=reshala_support
+      - BOT_TOKEN=${BOT_TOKEN}
+      - REMNAWAVE_API_URL=${REMNAWAVE_API_URL}
+      - REMNAWAVE_API_TOKEN=${REMNAWAVE_API_TOKEN}
+      - SUPPORT_GROUP_ID=${SUPPORT_GROUP_ID}
+      - ALLOWED_MANAGER_IDS=${ALLOWED_MANAGER_IDS}
+      - MINI_APP_DOMAIN=${MINI_APP_DOMAIN}
+      - MINI_APP_URL=${MINI_APP_URL}
+    volumes:
+      - ./bot_data:/data
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - reshala-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
@@ -69,6 +100,7 @@ services:
 
 volumes:
   mongodb_data:
+
 
 networks:
   reshala-network:

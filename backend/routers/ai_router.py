@@ -5,9 +5,11 @@ AI Router — чат с AI и управление провайдерами
 from fastapi import APIRouter, Body
 from pymongo import MongoClient
 from services.ai.manager import AIProviderManager
+from middleware.auth import verify_telegram_auth
+from fastapi import Depends
 import os
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_telegram_auth)])
 
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME", "reshala_support")

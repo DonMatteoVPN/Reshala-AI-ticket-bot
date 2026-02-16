@@ -7,19 +7,14 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from services.ai.manager import AIProviderManager
 
+
+from utils.db_config import get_db, get_settings
+
 logger = logging.getLogger(__name__)
 
 
-def _get_config(context):
-    return context.application.bot_data.get("_config", {})
-
-
-def _get_db(context):
-    return context.application.bot_data.get("_db")
-
-
 def _check_access(user_id, context):
-    config = _get_config(context)
+    config = get_settings()
     return user_id in set(config.get("allowed_manager_ids", []))
 
 
@@ -32,8 +27,8 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def _show_settings_menu(target, context, edit=False):
-    db = _get_db(context)
-    config = _get_config(context)
+    db = get_db()
+    config = get_settings()
     ai_manager = AIProviderManager(db)
     providers = ai_manager.get_providers()
     active = config.get("active_provider", "")
@@ -89,8 +84,8 @@ async def settings_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     data = query.data
-    db = _get_db(context)
-    config = _get_config(context)
+    db = get_db()
+    config = get_settings()
     ai_manager = AIProviderManager(db)
 
     if data == "cfg:toggle_ai":

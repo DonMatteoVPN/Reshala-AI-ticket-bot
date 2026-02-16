@@ -32,7 +32,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [telegramUser, setTelegramUser] = useState(null);
-  
+  const [initData, setInitData] = useState('');
+
   // Сохранение состояния поиска между вкладками
   const [searchState, setSearchState] = useState({
     query: '',
@@ -40,9 +41,12 @@ function App() {
     section: 'profile'
   });
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = useCallback(async (dataStr) => {
     try {
-      const r = await fetch(`${API}/api/settings`);
+      const headers = {};
+      if (dataStr) headers['X-Telegram-Init-Data'] = dataStr;
+
+      const r = await fetch(`${API}/api/settings`, { headers });
       const data = await r.json();
       setSettings(data);
       return data;
@@ -52,9 +56,12 @@ function App() {
     }
   }, []);
 
-  const fetchProviders = useCallback(async () => {
+  const fetchProviders = useCallback(async (dataStr) => {
     try {
-      const r = await fetch(`${API}/api/settings/providers`);
+      const headers = {};
+      if (dataStr) headers['X-Telegram-Init-Data'] = dataStr;
+
+      const r = await fetch(`${API}/api/settings/providers`, { headers });
       const data = await r.json();
       setProviders(data.providers || []);
     } catch (e) {
@@ -71,32 +78,37 @@ function App() {
   useEffect(() => {
     const init = async () => {
       let tgUser = null;
-      
+      let rawData = '';
+
       if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
-        
-        const initData = window.Telegram.WebApp.initDataUnsafe;
-        if (initData?.user) {
-          tgUser = initData.user;
+
+        rawData = window.Telegram.WebApp.initData;
+        setInitData(rawData);
+
+        const initDataUnsafe = window.Telegram.WebApp.initDataUnsafe;
+        if (initDataUnsafe?.user) {
+          tgUser = initDataUnsafe.user;
           setTelegramUser(tgUser);
         }
       }
-      
-      const settingsData = await fetchSettings();
-      await fetchProviders();
-      
+
+      const settingsData = await fetchSettings(rawData);
+      await fetchProviders(rawData);
+
       if (tgUser?.id) {
         const hasAccess = checkAccess(settingsData, tgUser.id);
         setAccessDenied(!hasAccess);
       } else {
-        const isDev = !window.Telegram?.WebApp?.initData;
+        // Dev mode fallback or denial
+        const isDev = !rawData;
         setAccessDenied(!isDev);
       }
-      
+
       setLoading(false);
     };
-    
+
     init();
   }, [fetchSettings, fetchProviders, checkAccess]);
 
@@ -125,38 +137,41 @@ function App() {
       <main className="app-main">
         {/* Поиск — сохраняет состояние */}
         <div style={{ display: page === 'search' ? 'block' : 'none' }}>
-          <SearchPage 
-            settings={settings} 
+          <SearchPage
+            settings={settings}
             searchState={searchState}
             setSearchState={setSearchState}
+            initData={initData}
           />
         </div>
-        
+
         {/* Тикеты */}
         <div style={{ display: page === 'tickets' ? 'block' : 'none' }}>
-          <TicketsPage settings={settings} />
+          <TicketsPage settings={settings} initData={initData} />
         </div>
-        
+
         {/* AI Чат */}
-        {page === 'chat-test' && <AIChatTestPage settings={settings} />}
-        
+        {page === 'chat-test' && <AIChatTestPage settings={settings} initData={initData} />}
+
         {/* AI Провайдеры */}
         {page === 'providers' && (
           <ProvidersPage
             providers={providers}
             settings={settings}
-            onRefresh={() => { fetchProviders(); fetchSettings(); }}
+            initData={initData}
+            onRefresh={() => { fetchProviders(initData); fetchSettings(initData); }}
           />
         )}
-        
+
         {/* База знаний */}
-        {page === 'knowledge' && <KnowledgePage />}
-        
+        {page === 'knowledge' && <KnowledgePage initData={initData} />}
+
         {/* Настройки */}
         {page === 'settings' && (
           <SettingsPage
             settings={settings}
-            onUpdate={() => fetchSettings()}
+            initData={initData}
+            onUpdate={() => fetchSettings(initData)}
           />
         )}
       </main>

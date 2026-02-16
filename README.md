@@ -262,6 +262,27 @@ reshala-support/
 
 ---
 
+## 🚀 Production Deployment
+
+### Docker
+Build and run the container:
+```bash
+docker build -t reshala-backend .
+docker run -d -p 8000:8000 --env-file .env --name reshala-backend reshala-backend
+```
+
+### Testing
+Run unit tests:
+```bash
+pytest tests/
+```
+
+### Healthcheck
+The service exposes a health check endpoint:
+`GET /api/health`
+
+---
+
 ## 📄 Лицензия
 
 MIT License

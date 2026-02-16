@@ -1,12 +1,24 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
+import logging
+from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
-from contextlib import asynccontextmanager
-import logging
+
+# Rate Limiting
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from middleware.rate_limit import limiter
+
+# Exception Handlers
+from exception_handlers import add_exception_handlers
+
+# Database Indexes
+from database.indexes import ensure_indexes
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -47,13 +59,29 @@ def init_default_settings():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize settings
     init_default_settings()
+    
+    # Create Indexes
+    try:
+        await ensure_indexes(db)
+        logger.info("MongoDB indexes verified.")
+    except Exception as e:
+        logger.error(f"Failed to create indexes: {e}")
+        
     logger.info("Решала support от DonMatteo - Backend started")
     yield
     client.close()
 
 
 app = FastAPI(title="Решала support от DonMatteo", lifespan=lifespan)
+
+# Rate Limiter Setup
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Global Exception Handlers
+add_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -82,4 +110,15 @@ app.include_router(bedolaga_router, prefix="/api/bedolaga", tags=["bedolaga"])
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "Решала support от DonMatteo"}
+    # Simple check
+    try:
+        client.admin.command('ping')
+        db_status = "connected"
+    except Exception:
+        db_status = "disconnected"
+        
+    return {
+        "status": "ok", 
+        "service": "Решала support от DonMatteo",
+        "database": db_status
+    }

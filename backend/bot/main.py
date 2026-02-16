@@ -13,6 +13,10 @@ from telegram.ext import (
     filters, PicklePersistence
 )
 
+from utils.db_config import get_db, get_settings
+from utils.support_common import get_support_chat_ids
+
+
 from bot.handlers.start import start_handler, help_handler
 from bot.handlers.search import handle_message
 from bot.handlers.support import (
@@ -31,49 +35,36 @@ from bot.handlers.actions import (
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "reshala_support")
-
-client = MongoClient(MONGO_URL)
-db = client[DB_NAME]
 
 
-def get_config():
-    """Получает конфигурацию из MongoDB."""
-    settings = db.settings.find_one({}, {"_id": 0})
-    if not settings:
-        return None
-    return settings
 
 
-def _support_chat_ids(support_group_id):
-    if support_group_id is None:
-        return []
-    ids = [support_group_id]
-    if -10**9 <= support_group_id < 0 and support_group_id > -10**10:
-        full_id = -(10**12 + abs(support_group_id))
-        if full_id not in ids:
-            ids.append(full_id)
-    return ids
+
 
 
 async def post_init(application: Application) -> None:
-    from telegram import MenuButtonCommands
+    from telegram import MenuButtonCommands, MenuButtonWebApp, WebAppInfo
+    
+    # Загружаем конфиг из MongoDB
+    config = get_settings()
+    miniapp_url = config.get("miniapp_url") if config else None
+
     try:
+        # По умолчанию у всех обычное меню
         await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     except Exception as e:
         logger.warning("post_init set_chat_menu_button: %s", e)
     
     # Загружаем конфиг из MongoDB и сохраняем в bot_data
     # НЕ сохраняем db — он не сериализуется!
-    config = get_config()
+    config = get_settings()
     if config:
         application.bot_data["_config"] = config
         logger.info(f"post_init: Loaded config, support_group_id={config.get('support_group_id')}")
 
 
 def main():
-    config = get_config()
+    config = get_settings()
     if not config:
         logger.error("Нет настроек в MongoDB. Настройте через Mini App.")
         sys.exit(1)
@@ -103,8 +94,6 @@ def main():
     # Регистрация обработчиков
     application.add_handler(CommandHandler("start", start_handler))
     application.add_handler(CommandHandler("help", help_handler))
-    application.add_handler(CommandHandler("settings", settings_command))
-    application.add_handler(CallbackQueryHandler(settings_callback, pattern="^cfg:"))
     application.add_handler(CallbackQueryHandler(support_action_callback, pattern="^sup_act:"))
     application.add_handler(CallbackQueryHandler(support_nav_callback, pattern="^sup:"))
     application.add_handler(CallbackQueryHandler(support_card_callback, pattern="^sup"))
@@ -130,7 +119,7 @@ def main():
 
     # Сообщения от менеджера в группе поддержки
     if support_group_id:
-        chat_ids = _support_chat_ids(support_group_id)
+        chat_ids = get_support_chat_ids(support_group_id)
         logger.info(f"Registered support group handler for chat_ids: {chat_ids}")
         application.add_handler(MessageHandler(
             support_content & filters.Chat(chat_ids),

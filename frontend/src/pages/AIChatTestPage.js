@@ -3,7 +3,7 @@ import { Send, Bot, User, RefreshCw, Sparkles } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-export default function AIChatTestPage({ settings }) {
+export default function AIChatTestPage({ settings, initData }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,13 +25,16 @@ export default function AIChatTestPage({ settings }) {
     setLoading(true);
 
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (initData) headers['X-Telegram-Init-Data'] = initData;
+
       const r = await fetch(`${API}/api/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ message: text })
       });
       const data = await r.json();
-      
+
       const aiMsg = {
         role: 'assistant',
         content: data.ok ? data.reply : `Ошибка: ${data.error || 'Не удалось получить ответ'}`,

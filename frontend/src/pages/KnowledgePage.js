@@ -201,7 +201,7 @@ export default function KnowledgePage() {
                   onClick={e => { e.stopPropagation(); openEdit(a); }}
                   data-testid={`kb-edit-${a.id}`}
                 >
-                  <Edit3 size={12} />
+                  <Edit3 size={16} />
                 </button>
                 <button
                   className="btn btn-icon btn-danger"
@@ -209,7 +209,7 @@ export default function KnowledgePage() {
                   onClick={e => { e.stopPropagation(); deleteArticle(a.id); }}
                   data-testid={`kb-delete-${a.id}`}
                 >
-                  <Trash2 size={12} />
+                  <Trash2 size={16} />
                 </button>
               </div>
             </div>
