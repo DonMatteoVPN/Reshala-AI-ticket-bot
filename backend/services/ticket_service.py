@@ -260,22 +260,22 @@ class TicketService:
         
         if self.telegram_service and self.support_group_id and thread_id:
             try:
-                # Порядок операций: сообщение → переименование → закрытие
-                # 1. Отправляем сообщение о закрытии
+                # 1. Переименовываем тему (используем 🟢 вместо ✅)
+                new_name = get_topic_name(client_username, final_status)
+                logger.info(f"[CLOSE_TICKET] Renaming topic {thread_id} to: {new_name} (status={final_status})")
+                await self.telegram_service.edit_forum_topic(self.support_group_id, thread_id, new_name)
+                
+                # 2. Закрываем тему
+                await self.telegram_service.close_forum_topic(self.support_group_id, thread_id)
+                logger.info(f"[CLOSE_TICKET] Closed topic {thread_id}")
+                
+                # 3. Отправляем сообщение о закрытии
                 closer = "менеджером" if is_manager else "клиентом"
                 await self.telegram_service.send_message(
                     self.support_group_id, 
                     f"✅ <b>Тикет закрыт {closer}.</b>", 
                     thread_id
                 )
-                
-                # 2. Переименовываем тему с правильным эмодзи
-                new_name = get_topic_name(client_username, final_status)
-                logger.info(f"[CLOSE_TICKET] Renaming topic {thread_id} to: {new_name} (status={final_status})")
-                await self.telegram_service.edit_forum_topic(self.support_group_id, thread_id, new_name)
-                
-                # 3. Закрываем тему
-                await self.telegram_service.close_forum_topic(self.support_group_id, thread_id)
                 
                 # Notify client
                 if is_manager and client_id:

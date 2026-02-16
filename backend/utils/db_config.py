@@ -61,8 +61,21 @@ def get_settings():
         "service_name": "SERVICE_NAME"
     }
 
+    # Track if we need to update DB
+    updates = {}
+
     for db_key, env_key in env_mapping.items():
-        if db_key not in settings:
+        # Check if value is missing or empty in DB
+        db_value = settings.get(db_key)
+        is_empty = (
+            db_value is None or 
+            db_value == "" or 
+            db_value == [] or 
+            db_value == 0 or
+            (isinstance(db_value, list) and len(db_value) == 0)
+        )
+        
+        if db_key not in settings or is_empty:
             val = os.environ.get(env_key)
             if val:
                 # Type conversion
@@ -84,15 +97,26 @@ def get_settings():
                     val = f"https://{val}"
                 
                 settings[db_key] = val
+                updates[db_key] = val
     
     # Fallback for miniapp_url from mini_app_domain if miniapp_url still missing
-    if "miniapp_url" not in settings:
+    if "miniapp_url" not in settings or not settings.get("miniapp_url"):
         domain = settings.get("mini_app_domain")
         if domain:
             if not str(domain).startswith("http"):
-                settings["miniapp_url"] = f"https://{domain}"
+                miniapp_url = f"https://{domain}"
             else:
-                settings["miniapp_url"] = domain
+                miniapp_url = domain
+            settings["miniapp_url"] = miniapp_url
+            updates["miniapp_url"] = miniapp_url
+
+    # Save updates to DB if any
+    if updates and db is not None:
+        try:
+            db.settings.update_one({}, {"$set": updates}, upsert=True)
+            logger.info(f"Initialized settings from .env: {list(updates.keys())}")
+        except Exception as e:
+            logger.error(f"Error saving settings to DB: {e}")
 
     return settings
 

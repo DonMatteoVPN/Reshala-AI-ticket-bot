@@ -130,3 +130,6 @@ cython_debug/
 .vscode/
 *.swp
 *.swo
+
+# macOS
+.DS_Store

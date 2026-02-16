@@ -36,9 +36,12 @@ class TelegramService:
     async def edit_forum_topic(self, chat_id: int, message_thread_id: int, name: str):
         """Renames a forum topic."""
         try:
+            logger.info(f"[TELEGRAM_SERVICE] Editing forum topic {message_thread_id} to: '{name}' (chat_id={chat_id})")
             await self.bot.edit_forum_topic(chat_id=chat_id, message_thread_id=message_thread_id, name=name)
+            logger.info(f"[TELEGRAM_SERVICE] Successfully edited forum topic {message_thread_id}")
         except TelegramError as e:
-            logger.warning(f"Failed to edit forum topic {message_thread_id}: {e}")
+            logger.error(f"[TELEGRAM_SERVICE] Failed to edit forum topic {message_thread_id}: {e}")
+            raise  # Пробрасываем исключение, чтобы код выше знал об ошибке
 
     async def send_message(self, chat_id: int, text: str, message_thread_id: int = None, parse_mode="HTML"):
         """Sends a text message."""

@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 TOPIC_OPEN = "💬"
 TOPIC_ESCALATED = "🔥"
 TOPIC_SUSPICIOUS = "🚨"
-TOPIC_CLOSED = "✅"
+TOPIC_CLOSED = "🟢"  # Используем 🟢 вместо ✅, так как Telegram удаляет ✅ из названий топиков
 
 ESCALATION_TRIGGERS = [
     "уточнить у менеджера",
@@ -88,6 +88,7 @@ def get_topic_name(username: str, status: str = "open") -> str:
         
     safe_username = str(username or "Unknown").strip().replace("@", "")
     return f"{prefix} @{safe_username}"[:128]
+
 
 def build_support_header(user_info: dict, balance_data: dict, is_suspicious: bool, section: str = "profile") -> str:
     """

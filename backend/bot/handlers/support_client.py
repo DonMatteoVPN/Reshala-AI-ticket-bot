@@ -343,7 +343,7 @@ async def handle_client_message(update: Update, context: ContextTypes.DEFAULT_TY
         main_bot_username = config.get("main_bot_username", "")
         context.user_data["user_context"] = format_user_context(user_data, balance_data, True, main_bot_username)
         
-        try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=f"{TOPIC_SUSPICIOUS} @{user_name}")
+        try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=get_topic_name(user_name, "suspicious"))
         except: pass
         
         await context.bot.send_message(chat_id=support_group_id, message_thread_id=thread_id, text=f"🚨 <b>ВНИМАНИЕ!</b> Пользователь @{user_name} не найден, но предоставил данные. Требуется проверка.", parse_mode="HTML")
@@ -385,7 +385,7 @@ async def handle_client_message(update: Update, context: ContextTypes.DEFAULT_TY
                 
                 # Меняем название темы и статус только если НЕ подозрительный
                 if not is_suspicious:
-                    try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=f"{TOPIC_ESCALATED} @{user_name}")
+                    try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=get_topic_name(user_name, "escalated"))
                     except: pass
                     await context.bot.send_message(chat_id=support_group_id, message_thread_id=thread_id, text=f"🔥 <b>Эскалация</b>: AI не смог ответить.\nAI: {ai_reply[:300]}", parse_mode="HTML")
                     if db is not None: 
@@ -461,7 +461,7 @@ async def call_manager_callback(update: Update, context: ContextTypes.DEFAULT_TY
         user_name = query.from_user.username or str(query.from_user.id)
         # Меняем название темы только если НЕ подозрительный
         if not is_suspicious:
-            try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=f"{TOPIC_ESCALATED} @{user_name}")
+            try: await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=get_topic_name(user_name, "escalated"))
             except: pass
             
         await context.bot.send_message(chat_id=support_group_id, message_thread_id=thread_id, text=f"🔥 <b>Клиент @{user_name} вызывает менеджера!</b>", parse_mode="HTML")
@@ -500,25 +500,25 @@ async def client_close_ticket_callback(update: Update, context: ContextTypes.DEF
                     {"$set": {"status": "suspicious", "closed_at": datetime.now(timezone.utc)}}
                 )
         else:
-            # Обычный тикет: порядок операций - сообщение → переименование → закрытие
-            # 1. Отправляем сообщение
-            await context.bot.send_message(chat_id=support_group_id, message_thread_id=thread_id, text=f"✅ <b>Тикет закрыт клиентом.</b>", parse_mode="HTML")
-            
-            # 2. Переименовываем тему (пока она еще открыта)
-            # 2. Переименовываем тему (пока она еще открыта)
+            # Обычный тикет: переименование → закрытие → сообщение
+            # 1. Переименовываем тему (используем 🟢 вместо ✅)
             try:
-                new_name = f"{TOPIC_CLOSED} @{user_name}"
+                new_name = get_topic_name(user_name, "closed")
                 await context.bot.edit_forum_topic(chat_id=support_group_id, message_thread_id=thread_id, name=new_name)
                 logger.info(f"Renamed topic {thread_id} to {new_name}")
             except Exception as e:
                 logger.error(f"Failed to rename topic {thread_id}: {e}")
             
-            # 3. Закрываем тему
+            # 2. Закрываем тему
             try:
                 await context.bot.close_forum_topic(chat_id=support_group_id, message_thread_id=thread_id)
                 logger.info(f"Closed topic {thread_id}")
             except Exception as e:
                 logger.error(f"Failed to close topic {thread_id}: {e}")
+            
+            # 3. Отправляем сообщение
+            await context.bot.send_message(chat_id=support_group_id, message_thread_id=thread_id, text=f"✅ <b>Тикет закрыт клиентом.</b>", parse_mode="HTML")
+
             
             # 4. Удаляем из БД
             if db is not None: 
