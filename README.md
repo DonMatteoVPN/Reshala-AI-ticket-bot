@@ -162,8 +162,158 @@ docker-compose ps
 2. URL: `https://your-domain.com`.
 3. Title: `Панель`.
 
-### 🚀 Продакшен (Nginx + SSL)
-Настрой Nginx прокси для Backend (:8001) и Frontend (:3000), накати SSL через certbot.
+### 🚀 ПРОДАКШЕН УСТАНОВКА (Production Guide)
+
+<br>
+
+В продакшене мы не используем `npm start` и `python main.py`. Мы используем **Docker Compose** и **Nginx** как реверс-прокси с SSL.
+
+### 🏗️ Архитектура деплоя
+
+1.  **Backend** крутится в Docker контейнере на порту `8001`.
+2.  **Frontend** собирается в статику и раздается Nginx внутри контейнера на порту `3000`.
+3.  **Внешний Nginx** (на хосте) принимает запросы на `80` и `443` портах и проксирует их:
+    *   `api.your-domain.com` -> `localhost:8001` (Backend)
+    *   `your-domain.com` -> `localhost:3000` (Frontend)
+
+<br>
+
+### 🛠️ Пошаговая инструкция
+
+#### 1. Подготовка сервера
+Установи Docker и Nginx:
+```bash
+sudo apt update && sudo apt install -y docker.io docker-compose nginx certbot python3-certbot-nginx
+```
+
+#### 2. Настройка проекта
+Клонируй репо и настрой `.env` как описано в "Быстром старте", но с важными изменениями для прода:
+
+```env
+# URL бэкенда (указываем внешний домен)
+REACT_APP_BACKEND_URL=https://api.your-domain.com
+
+# URL фронтенда
+MINI_APP_DOMAIN=your-domain.com
+MINI_APP_URL=https://your-domain.com
+
+# Отключаем режим разработки!
+SKIP_AUTH=false
+```
+
+#### 3. Настройка Nginx (Reverse Proxy)
+
+Создай конфиг файл:
+```bash
+sudo nano /etc/nginx/sites-available/reshala-support
+```
+
+Вставь этот конфиг (замени `your-domain.com` на свой домен):
+
+```nginx
+# ---------------------------------------
+# BACKEND (API)
+# ---------------------------------------
+server {
+    server_name api.your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:8001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# ---------------------------------------
+# FRONTEND (Mini App)
+# ---------------------------------------
+server {
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Активируй конфиг и проверь ошибки:
+```bash
+sudo ln -s /etc/nginx/sites-available/reshala-support /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+#### 4. Получение SSL (HTTPS)
+Certbot сам все настроит:
+```bash
+sudo certbot --nginx -d your-domain.com -d api.your-domain.com
+```
+
+#### 5. Запуск
+```bash
+docker-compose up -d --build
+```
+Теперь твой бот доступен по HTTPS, а фронтенд открывается в Telegram без ошибок.
+
+---
+
+### 📦 Вариант без Docker (Systemd)
+
+Если ты олдскул и не любишь Docker, вот unit-файлы для systemd.
+
+**Backend (`/etc/systemd/system/reshala-backend.service`):**
+```ini
+[Unit]
+Description=Reshala Backend API
+After=network.target mongodb.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/Reshala-AI-ticket-bot/backend
+EnvironmentFile=/opt/Reshala-AI-ticket-bot/.env
+ExecStart=/usr/bin/python3 server.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Bot (`/etc/systemd/system/reshala-bot.service`):**
+```ini
+[Unit]
+Description=Reshala Telegram Bot
+After=network.target mongodb.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/Reshala-AI-ticket-bot/backend
+EnvironmentFile=/opt/Reshala-AI-ticket-bot/.env
+ExecStart=/usr/bin/python3 -m bot.main
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Управление:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now reshala-backend reshala-bot
+```
 
 </details>
 
