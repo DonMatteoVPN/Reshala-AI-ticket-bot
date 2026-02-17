@@ -309,6 +309,8 @@ Reshala-AI-ticket-bot/
 <details>
   <summary><b>🌟 История успеха</b></summary>
 
+[## Star History
+
 [![Star History Chart](https://api.star-history.com/svg?repos=DonMatteoVPN/Reshala-AI-ticket-bot&type=date&legend=top-left)](https://www.star-history.com/#DonMatteoVPN/Reshala-AI-ticket-bot&type=date&legend=top-left)
   
 </details>
