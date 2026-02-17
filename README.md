@@ -178,6 +178,7 @@ MINI_APP_URL=https://your-domain.com
 SKIP_AUTH=false
 ```
 
+
 #### 3. Настройка Nginx (Reverse Proxy)
 
 В репозитории уже есть готовый пример конфига `nginx.conf.example`.
@@ -188,7 +189,7 @@ sudo cp nginx.conf.example /etc/nginx/sites-available/nginx.conf
 sudo nano /etc/nginx/sites-available/nginx.conf
 ```
 
-2. Внутри файла замени `your-domain.com` и `api.your-domain.com` на свои домены.
+2. Внутри файла замени `your-domain.com` на свой домен.
 
 Активируй конфиг и проверь ошибки:
 ```bash
@@ -200,7 +201,7 @@ sudo systemctl reload nginx
 #### 4. Получение SSL (HTTPS)
 Certbot сам все настроит:
 ```bash
-sudo certbot --nginx -d your-domain.com -d api.your-domain.com
+sudo certbot --nginx -d your-domain.com
 ```
 
 #### 5. Запуск

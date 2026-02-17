@@ -7,19 +7,20 @@
 # Как использовать:
 # 1. Скопируйте файл: sudo cp nginx.conf.example /etc/nginx/sites-available/nginx.conf
 # 2. Отредактируйте: sudo nano /etc/nginx/sites-available/nginx.conf
-#    (Замените your-domain.com и api.your-domain.com на ваши домены)
+#    (Замените your-domain.com на ваш домен)
 # 3. Активируйте: sudo ln -s /etc/nginx/sites-available/nginx.conf /etc/nginx/sites-enabled/
 # 4. Проверьте: sudo nginx -t
 # 5. Перезагрузите: sudo systemctl reload nginx
-# 6. Получите SSL: sudo certbot --nginx -d your-domain.com -d api.your-domain.com
+# 6. Получите SSL: sudo certbot --nginx -d your-domain.com
 
 # ---------------------------------------
-# BACKEND (API)
+# RESHALA MINI APP (Frontend + Backend API)
 # ---------------------------------------
 server {
-    server_name api.your-domain.com;
+    server_name your-domain.com;
 
-    location / {
+    # API запросы → Backend (FastAPI на порту 8001)
+    location /api/ {
         proxy_pass http://localhost:8001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -29,14 +30,8 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-}
 
-# ---------------------------------------
-# FRONTEND (Mini App)
-# ---------------------------------------
-server {
-    server_name your-domain.com;
-
+    # Все остальное → Frontend (React SPA на порту 3000)
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
