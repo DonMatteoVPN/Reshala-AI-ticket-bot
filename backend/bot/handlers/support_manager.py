@@ -111,9 +111,8 @@ async def handle_support_group_message(update: Update, context: ContextTypes.DEF
                     "$push": {"history": reply_record},
                     "$set": {
                         "last_reply_at": datetime.now(timezone.utc),
-                        "status": "answered" # Меняем статус на answered? Или оставляем escalated/suspicious?
-                        # В оригинале статус не менялся явно, но логично пометить что ответили.
-                        # Но пока оставим как есть, чтобы не ломать логику "active".
+                        "status": "answered", # Меняем статус на answered (или оставляем как есть, но для порядка)
+                        "ai_disabled": True  # <--- ОТКЛЮЧАЕМ ИИ ПРИ ОТВЕТЕ МЕНЕДЖЕРА
                     }
                 }
             )

@@ -210,7 +210,8 @@ class TicketService:
             {
                 "$set": {
                     "last_messages": last_messages,
-                    "last_reply_at": datetime.now(timezone.utc)
+                    "last_reply_at": datetime.now(timezone.utc),
+                    "ai_disabled": True  # <--- ОТКЛЮЧАЕМ ИИ ПРИ ОТВЕТЕ МЕНЕДЖЕРА (API)
                 },
                 "$push": {"history": reply_record}
             }
