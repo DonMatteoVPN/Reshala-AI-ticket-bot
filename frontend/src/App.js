@@ -8,10 +8,37 @@ import ProvidersPage from './pages/ProvidersPage';
 import KnowledgePage from './pages/KnowledgePage';
 import AIChatTestPage from './pages/AIChatTestPage';
 import TicketsPage from './pages/TicketsPage';
+import ClientPortalPage from './pages/ClientPortalPage';
 import { ShieldX } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// ─── Detect portal mode ────────────────────────────────────────────────────
+// Rules (checked in priority order):
+//  1. Path starts with /client  → client portal
+//  2. URL has ?token=XXX        → client portal (magic-link)
+//  3. URL has ?mode=client      → client portal
+//  4. Otherwise                 → manager mode
+function getPortalMode() {
+  const path   = window.location.pathname;
+  const params = new URLSearchParams(window.location.search);
+  if (path.startsWith('/client'))   return 'client';
+  if (params.get('token'))          return 'client';
+  if (params.get('mode') === 'client') return 'client';
+  return 'manager';
+}
+
+// Extract magic-link token from URL if present
+function getMagicToken() {
+  return new URLSearchParams(window.location.search).get('token') || null;
+}
+
+// Get pre-selected client_id for manager auto-search
+function getPreselectedClientId() {
+  return new URLSearchParams(window.location.search).get('client_id') || null;
+}
+
+// ─── Access Denied screen ─────────────────────────────────────────────────
 function AccessDenied() {
   return (
     <div className="access-denied" data-testid="access-denied">
@@ -25,28 +52,54 @@ function AccessDenied() {
   );
 }
 
-function App() {
-  const [page, setPage] = useState('search');
-  const [settings, setSettings] = useState(null);
-  const [providers, setProviders] = useState([]);
-  const [loading, setLoading] = useState(true);
+// ─── Client Portal wrapper ─────────────────────────────────────────────────
+// Initialises Telegram WebApp (if available) and passes token down
+function ClientPortalWrapper() {
+  const [initData, setInitData]     = useState('');
+  const [clientToken, setClientToken] = useState(getMagicToken());
+
+  useEffect(() => {
+    if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      const raw = window.Telegram.WebApp.initData;
+      if (raw) setInitData(raw);
+    }
+  }, []);
+
+  return (
+    <div className="app">
+      <ClientPortalPage initData={initData} clientToken={clientToken} />
+    </div>
+  );
+}
+
+// ─── Manager App ───────────────────────────────────────────────────────────
+function ManagerApp() {
+  const [page, setPage]               = useState('search');
+  const [settings, setSettings]       = useState(null);
+  const [providers, setProviders]     = useState([]);
+  const [loading, setLoading]         = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [telegramUser, setTelegramUser] = useState(null);
-  const [initData, setInitData] = useState('');
+  const [initData, setInitData]       = useState('');
+
+  // Pre-selected client from URL params (when opened from manager topic button)
+  const preselectedClientId = getPreselectedClientId();
+  const preselectedSection  = new URLSearchParams(window.location.search).get('section') || 'profile';
 
   // Сохранение состояния поиска между вкладками
   const [searchState, setSearchState] = useState({
-    query: '',
-    result: null,
-    section: 'profile'
+    query:   preselectedClientId || '',
+    result:  null,
+    section: preselectedSection
   });
 
   const fetchSettings = useCallback(async (dataStr) => {
     try {
-      const headers = {};
-      if (dataStr) headers['X-Telegram-Init-Data'] = dataStr;
-
-      const r = await fetch(`${API}/api/settings`, { headers });
+      const hdrs = {};
+      if (dataStr) hdrs['X-Telegram-Init-Data'] = dataStr;
+      const r    = await fetch(`${API}/api/settings`, { headers: hdrs });
       const data = await r.json();
       setSettings(data);
       return data;
@@ -58,10 +111,9 @@ function App() {
 
   const fetchProviders = useCallback(async (dataStr) => {
     try {
-      const headers = {};
-      if (dataStr) headers['X-Telegram-Init-Data'] = dataStr;
-
-      const r = await fetch(`${API}/api/settings/providers`, { headers });
+      const hdrs = {};
+      if (dataStr) hdrs['X-Telegram-Init-Data'] = dataStr;
+      const r    = await fetch(`${API}/api/settings/providers`, { headers: hdrs });
       const data = await r.json();
       setProviders(data.providers || []);
     } catch (e) {
@@ -71,8 +123,7 @@ function App() {
 
   const checkAccess = useCallback((settingsData, userId) => {
     if (!settingsData || !userId) return false;
-    const allowedIds = settingsData.allowed_manager_ids || [];
-    return allowedIds.includes(userId);
+    return (settingsData.allowed_manager_ids || []).includes(userId);
   }, []);
 
   useEffect(() => {
@@ -83,13 +134,11 @@ function App() {
       if (typeof window.Telegram !== 'undefined' && window.Telegram.WebApp) {
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
-
         rawData = window.Telegram.WebApp.initData;
         setInitData(rawData);
-
-        const initDataUnsafe = window.Telegram.WebApp.initDataUnsafe;
-        if (initDataUnsafe?.user) {
-          tgUser = initDataUnsafe.user;
+        const unsafe = window.Telegram.WebApp.initDataUnsafe;
+        if (unsafe?.user) {
+          tgUser = unsafe.user;
           setTelegramUser(tgUser);
         }
       }
@@ -98,19 +147,21 @@ function App() {
       await fetchProviders(rawData);
 
       if (tgUser?.id) {
-        const hasAccess = checkAccess(settingsData, tgUser.id);
-        setAccessDenied(!hasAccess);
+        setAccessDenied(!checkAccess(settingsData, tgUser.id));
       } else {
-        // Dev mode fallback or denial
-        const isDev = !rawData;
-        setAccessDenied(!isDev);
+        // Dev mode: no Telegram context → allow (useful for browser testing)
+        setAccessDenied(!!rawData); // deny only if initData is present but user not in list
+      }
+
+      // If pre-selected client_id is in URL, auto-navigate to search tab
+      if (preselectedClientId) {
+        setPage('search');
       }
 
       setLoading(false);
     };
-
     init();
-  }, [fetchSettings, fetchProviders, checkAccess]);
+  }, [fetchSettings, fetchProviders, checkAccess, preselectedClientId]);
 
   if (loading) {
     return (
@@ -135,7 +186,7 @@ function App() {
       <Header settings={settings} telegramUser={telegramUser} />
       <Navigation page={page} setPage={setPage} />
       <main className="app-main">
-        {/* Поиск — сохраняет состояние */}
+        {/* Search — keeps state between tabs */}
         <div style={{ display: page === 'search' ? 'block' : 'none' }}>
           <SearchPage
             settings={settings}
@@ -145,15 +196,15 @@ function App() {
           />
         </div>
 
-        {/* Тикеты */}
+        {/* Tickets (split-panel) */}
         <div style={{ display: page === 'tickets' ? 'block' : 'none' }}>
           <TicketsPage settings={settings} initData={initData} />
         </div>
 
-        {/* AI Чат */}
+        {/* AI Chat test */}
         {page === 'chat-test' && <AIChatTestPage settings={settings} initData={initData} />}
 
-        {/* AI Провайдеры */}
+        {/* AI Providers */}
         {page === 'providers' && (
           <ProvidersPage
             providers={providers}
@@ -163,10 +214,10 @@ function App() {
           />
         )}
 
-        {/* База знаний */}
+        {/* Knowledge base */}
         {page === 'knowledge' && <KnowledgePage initData={initData} />}
 
-        {/* Настройки */}
+        {/* Settings */}
         {page === 'settings' && (
           <SettingsPage
             settings={settings}
@@ -177,6 +228,13 @@ function App() {
       </main>
     </div>
   );
+}
+
+// ─── Root ──────────────────────────────────────────────────────────────────
+function App() {
+  const mode = getPortalMode();
+  if (mode === 'client') return <ClientPortalWrapper />;
+  return <ManagerApp />;
 }
 
 export default App;

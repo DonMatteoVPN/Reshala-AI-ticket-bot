@@ -357,3 +357,62 @@ async def support_action_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.message.reply_text(f"✅ Успешно: {action}")
     else:
         await query.message.reply_text(f"❌ Ошибка {action}: {result.get('error') or result.get('status')}")
+
+
+async def close_ticket_by_client_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Менеджер закрывает тикет через кнопку в топике.
+    Паттерн: close_ticket_by_client:{client_id}
+
+    Исправляет баг оригинала: кнопки в топике передавали client_id вместо ticket_id.
+    Теперь ищем активный тикет по client_id.
+    """
+    query = update.callback_query
+    data = query.data or ""
+    client_id_str = data.replace("close_ticket_by_client:", "")
+
+    if not check_access(query.from_user.id):
+        await query.answer("Доступ запрещён.", show_alert=True)
+        return
+
+    await query.answer("Закрываю тикет...")
+
+    db = get_db()
+    support_group_id = get_support_group_id()
+    from services.telegram_service import TelegramService
+    telegram_service = TelegramService(bot=context.bot)
+    ticket_service = TicketService(db, telegram_service, support_group_id)
+
+    try:
+        client_id = int(client_id_str)
+        ticket = db.tickets.find_one({
+            "client_id": client_id,
+            "is_removed": {"$ne": True},
+            "status": {"$ne": "closed"},
+        })
+        if ticket:
+            result = await ticket_service.close_ticket(str(ticket["_id"]), user_id=None, is_manager=True)
+        else:
+            result = {"ok": False, "error": "Активный тикет не найден"}
+    except ValueError:
+        result = {"ok": False, "error": f"Некорректный client_id: {client_id_str}"}
+    except Exception as e:
+        result = {"ok": False, "error": str(e)}
+
+    if result.get("ok"):
+        resolved_client_id = result.get("client_id")
+        thread_id = result.get("topic_id")
+
+        if resolved_client_id:
+            context.application.bot_data.get("support_topic_by_client", {}).pop(resolved_client_id, None)
+        if thread_id and support_group_id:
+            context.application.bot_data.get("support_thread_to_client", {}).pop(
+                (support_group_id, thread_id), None
+            )
+
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+    else:
+        await query.message.reply_text(f"❌ Не удалось закрыть: {result.get('error')}")

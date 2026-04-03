@@ -98,6 +98,7 @@ from routers.actions import router as actions_router
 from routers.knowledge import router as knowledge_router
 from routers.tickets import router as tickets_router
 from routers.bedolaga import router as bedolaga_router
+from routers.client_portal import router as client_portal_router
 
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(ai_router, prefix="/api/ai", tags=["ai"])
@@ -106,6 +107,7 @@ app.include_router(actions_router, prefix="/api/actions", tags=["actions"])
 app.include_router(knowledge_router, prefix="/api/knowledge", tags=["knowledge"])
 app.include_router(tickets_router, prefix="/api/tickets", tags=["tickets"])
 app.include_router(bedolaga_router, prefix="/api/bedolaga", tags=["bedolaga"])
+app.include_router(client_portal_router, prefix="/api/client", tags=["client-portal"])
 
 
 @app.get("/api/health")

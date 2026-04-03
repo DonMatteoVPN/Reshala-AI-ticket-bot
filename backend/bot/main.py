@@ -26,6 +26,7 @@ from bot.handlers.support import (
     remove_ticket_callback, ask_call_manager_callback, ask_close_ticket_callback,
     cancel_client_action_callback, support_action_callback, support_nav_callback
 )
+from bot.handlers.support_manager import close_ticket_by_client_callback
 from bot.handlers.settings import settings_command, settings_callback
 from bot.handlers.actions import (
     action_callback, button_callback, support_card_callback, 
@@ -97,6 +98,7 @@ def main():
     application.add_handler(CallbackQueryHandler(support_action_callback, pattern="^sup_act:"))
     application.add_handler(CallbackQueryHandler(support_nav_callback, pattern="^sup:"))
     application.add_handler(CallbackQueryHandler(support_card_callback, pattern="^sup"))
+    application.add_handler(CallbackQueryHandler(close_ticket_by_client_callback, pattern="^close_ticket_by_client:"))
     application.add_handler(CallbackQueryHandler(close_ticket_callback, pattern="^close_ticket:"))
     application.add_handler(CallbackQueryHandler(remove_ticket_callback, pattern="^remove_ticket:"))
     application.add_handler(CallbackQueryHandler(call_manager_callback, pattern="^call_manager$"))

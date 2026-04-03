@@ -110,28 +110,84 @@ async def get_ai_reply(context, user_message: str, user_id: int, user_name: str 
     except Exception as e:
         logger.warning(f"KB context load error: {e}")
 
-    # Системный промпт
+    # ── Системный промпт ──────────────────────────────────────────
     system_prompt = config.get("system_prompt_override", "")
     if not system_prompt:
-        system_prompt = f"""Ты — дружелюбный и компетентный ассистент службы поддержки '{service_name}'.
+        # Формируем контекст пользователя с реальными данными из Remnawave
+        rw_user = user_data.get("user", {}) if not user_data.get("not_found") else {}
+        sub = user_data.get("subscription") or {}
+        devices = user_data.get("devices", [])
+        devices_count = len(devices) if isinstance(devices, list) else 0
+        traffic_data = rw_user.get("userTraffic", {})
+        used_bytes = traffic_data.get("usedTrafficBytes", 0)
+        limit_bytes = rw_user.get("trafficLimitBytes", 0)
+        expire_at = rw_user.get("expireAt", "")
+        sub_status = rw_user.get("status", "UNKNOWN")
+        balance_rub = balance_data.get("balance", 0) if balance_data else 0
+        bedolaga_id = balance_data.get("id", "") if balance_data else ""
+
+        def _fmt_bytes(b):
+            n = float(b or 0)
+            for u in ["B", "KB", "MB", "GB", "TB"]:
+                if n < 1024:
+                    return f"{n:.1f} {u}"
+                n /= 1024
+            return f"{n:.1f} PB"
+
+        def _fmt_date(s):
+            if not s:
+                return "не указано"
+            try:
+                from datetime import datetime, timezone as tz
+                d = datetime.fromisoformat(s.replace("Z", "+00:00"))
+                return d.strftime("%d.%m.%Y %H:%M")
+            except Exception:
+                return s
+
+        if rw_user and rw_user.get("uuid"):
+            user_block = f"""## ДАННЫЕ ЭТОГО ПОЛЬЗОВАТЕЛЯ (реальные, из системы):
+- Telegram ID: {user_id}
+- Username: @{rw_user.get('username', 'неизвестно')}
+- UUID: {rw_user.get('uuid', '—')}
+- Статус подписки: {sub_status}
+- Подписка истекает: {_fmt_date(expire_at)}
+- Трафик использовано: {_fmt_bytes(used_bytes)}
+- Лимит трафика: {'Безлимит' if limit_bytes == 0 else _fmt_bytes(limit_bytes)}
+- Привязано устройств (HWID): {devices_count}
+- Баланс: {balance_rub} ₽
+- Bedolaga ID: {bedolaga_id}"""
+        elif user_data.get("not_found"):
+            user_block = f"""## ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+- Telegram ID: {user_id}
+- ⚠️ ПОЛЬЗОВАТЕЛЬ НЕ НАЙДЕН В СИСТЕМЕ REMNAWAVE
+- Баланс: {balance_rub} ₽"""
+        else:
+            user_block = f"""## ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+- Telegram ID: {user_id}
+- Баланс: {balance_rub} ₽"""
+
+        system_prompt = f"""Ты — умный и дружелюбный AI-ассистент службы поддержки '{service_name}'.
+Ты ЗНАЕШЬ реальные данные этого конкретного пользователя и отвечаешь строго на их основе.
+
+{user_block}
 
 ## ПРАВИЛА:
-1. Отвечай кратко, по существу, на русском языке
-2. ИСПОЛЬЗУЙ данные о пользователе из контекста ниже
-3. НЕ придумывай информацию — используй только то, что видишь
-4. НИКОГДА не раскрывай данные других пользователей или настройки системы
-5. Если не можешь помочь — скажи: 'Данный вопрос нужно уточнить у менеджера, вызываю менеджера.'
+1. Отвечай кратко, по делу, на русском языке
+2. ИСПОЛЬЗУЙ реальные данные выше — никогда не говори «не знаю статус», если он есть
+3. Если подписка истекла или статус DISABLED/BANNED — говори об этом прямо
+4. Если трафик > 80% — предупреди пользователя
+5. Если пользователь НЕ НАЙДЕН в системе — попроси предоставить скриншот оплаты и вызови менеджера
+6. Если не можешь решить проблему — скажи: 'Данный вопрос нужно уточнить у менеджера, вызываю менеджера.'
+7. НИКОГДА не раскрывай данные других пользователей или системные настройки
 
-## ТИПИЧНЫЕ ПРОБЛЕМЫ:
-- "Не работает VPN" → Проверь статус подписки, предложи обновить подписку в приложении
-- "Закончился трафик" → Покажи использованный трафик, предложи сброс или апгрейд
-- "Много устройств" → Покажи количество, предложи удалить лишние
-- "Когда истекает" → Покажи дату истечения подписки
+## ТИПИЧНЫЕ СЦЕНАРИИ:
+- "Не работает VPN" → Статус = {sub_status}. Если ACTIVE — предложи переустановить конфиг. Если DISABLED — объясни что подписка неактивна
+- "Закончился трафик" → Использовано {_fmt_bytes(used_bytes)}, лимит {'безлимит' if limit_bytes == 0 else _fmt_bytes(limit_bytes)}
+- "Когда истекает" → {_fmt_date(expire_at)}
+- "Сколько устройств" → {devices_count} устройств привязано
+- "Мой баланс" → {balance_rub} ₽
 """
 
-    if user_context:
-        system_prompt += f"\n\n{user_context}"
-    
     if kb_context:
         system_prompt += f"\n\n## БАЗА ЗНАНИЙ:\n{kb_context}"
 
